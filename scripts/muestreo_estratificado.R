@@ -7,17 +7,17 @@ library(sampling) #MAS
 library(stringr)
 
 
-mzn_viv<- read.dbf("tablas/cpv2010_manzanas_viviendas.dbf") 
-mzn_pob<-read.dbf("manzanas.dbf")
+mzn_viv <- read.dbf("data/cpv2010_manzanas_viviendas.dbf") 
+mzn_pob <- read.dbf("data/manzanas.dbf")
 
 # Marco de muestreo 
 #viv2
 #CTRL + SHIFT + M -> %>%
 
-marco <- mzn_viv %>% select(CVEGEO, VIV2) %>% 
-  left_join(mzn_pob, by = "CVEGEO") %>% 
-  mutate(ID_unit = 1:nrow(mzn_viv)) %>% 
-  select(ID_unit, CVEGEO, VIV2, POB21, POB52, POB77) %>% 
+marco <- mzn_viv %>% dplyr::select(CVEGEO, VIV2) %>% 
+  dplyr::left_join(mzn_pob, by = "CVEGEO") %>% 
+  dplyr::mutate(ID_unit = 1:nrow(mzn_viv)) %>% 
+  dplyr::select(ID_unit, CVEGEO, VIV2, POB21, POB52, POB77) %>% 
   naniar::replace_with_na_if(.predicate = is.numeric, condition = ~.x < 0)
 
 #srswor MAS sin remplazo
@@ -28,9 +28,7 @@ set.seed(310308261)
 muestra <- sampling::strata(marco, stratanames = NULL, size = 20, method = "srswor", description = TRUE)
 
 #fe_mzn: factor de expansion
-muestra_ponde <- marco %>% 
-  filter(ID_unit %in% muestra$ID_unit) %>% 
-  left_join(muestra, by = "ID_unit") %>% 
+muestra_ponde <- getdata(marco, muestra) %>% 
   mutate(fe_mzn = 1/Prob)
 
 #Estimaci?n del numero de viviendas con base en una muestra de 20 manzanas
@@ -55,7 +53,8 @@ dif2 = (6640095 - 6634328) / 6640095
 
 # "systematic" probabilidades desiguales 
 
-muestra2 <- sampling::strata(marco, stratanames = NULL, size = 20, method = "systematic", pik = marco$VIV2, description = TRUE)
+muestra2 <- sampling::strata(marco, stratanames = NULL, size = 20,
+                             method = "systematic", pik = marco$VIV2, description = TRUE)
 
 #fe_mzn: factor de expansion
 muestra_ponde <- marco %>% 
@@ -71,7 +70,7 @@ muestra_ponde <- marco %>%
 marco_estratificado <- marco %>% mutate(alcaldia = str_sub(CVEGEO,3,5) ) 
 
 diccionario_estratos <- marco_estratificado %>% 
-                        select(alcaldia) %>% 
+                        dplyr::select(alcaldia) %>% 
                         distinct() %>% 
                         mutate(id_estrato = row_number())
 

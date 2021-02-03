@@ -9,14 +9,19 @@
 } # Librerías
 
 {
-  dataset <- read.spss("BASE_CONACYT_260118.sav", to.data.frame=TRUE) # Lectura de datos de spss
+  dataset <- read.spss("data/BASE_CONACYT_260118.sav", to.data.frame = TRUE) # Lectura de datos de spss
   General <- "Nacional" # Nombre de estimación global (Puede ser nacional, cdmx, etc. Depende de la representatividad del estudio)
   
-  Lista <- read_xlsx("Lista de Preguntas.xlsx", sheet = "Lista Preguntas")$Pregunta %>% as.vector()
-  Lista_Preg <- read_xlsx("Lista de Preguntas.xlsx", sheet = "Lista Preguntas")$Nombre %>% as.vector()
-  DB_Mult <- read_xlsx("Lista de Preguntas.xlsx", sheet = "Múltiple") %>% as.data.frame()
-  Lista_Cont <- read_xlsx("Lista de Preguntas.xlsx", sheet = "Continuas")$VARIABLE %>% as.vector()
-  Dominios <- read_xlsx("Lista de Preguntas.xlsx", sheet = "Dominios")$Dominios %>% as.vector()
+  Lista <- read_xlsx("aux/Lista de Preguntas.xlsx", 
+                     sheet = "Lista Preguntas")$Pregunta %>% as.vector()
+  Lista_Preg <- read_xlsx("aux/Lista de Preguntas.xlsx", 
+                          sheet = "Lista Preguntas")$Nombre %>% as.vector()
+  DB_Mult <- read_xlsx("aux/Lista de Preguntas.xlsx", 
+                       sheet = "Múltiple") %>% as.data.frame()
+  Lista_Cont <- read_xlsx("aux/Lista de Preguntas.xlsx", 
+                          sheet = "Continuas")$VARIABLE %>% as.vector()
+  Dominios <- read_xlsx("aux/Lista de Preguntas.xlsx", 
+                        sheet = "Dominios")$Dominios %>% as.vector()
   
   Multiples <- names(DB_Mult)
   Ponderador <- dataset$Pondi1
@@ -43,11 +48,12 @@
 } # Inicialización de índices y hojas
 
 
-for(p in Lista){
+for (p in Lista) {
   
+  print(paste0("Estimando resultado de pregunta: ",p))
   dataset$Pondi1 <- Ponderador
   
-  if(p %in% Multiples){
+  if (p %in% Multiples) {
     
     ps <- DB_Mult[,p][!is.na(DB_Mult[,p])]
     
@@ -185,24 +191,24 @@ for(p in Lista){
     
   }  # Proceso para generar estimaciones de las preguntas Múltiples
   
-  else if(p %in% Lista_Cont){
+  else if (p %in% Lista_Cont) {
     
     # Convertir a valores numéricos las respuestas que vienen como categorías
     dataset[,p] <- as.numeric(levels(dataset[,p])[dataset[,p]])
     
     {
-      total <- svymean(~ dataset[,p], disenio_CAT_CONT, deff=T, na.rm=T) # Nacional
-      IC<-as.data.frame(confint(total))
-      nacional<-as.data.frame(total)
+      total <- svymean(~ dataset[,p], disenio_CAT_CONT, deff = T, na.rm = T) # Nacional
+      IC <- as.data.frame(confint(total))
+      nacional <- as.data.frame(total)
       IC[IC < min(dataset[,p], na.rm = T)] <- min(dataset[,p], na.rm = T)
       IC[IC > max(dataset[,p], na.rm = T)] <- max(dataset[,p], na.rm = T)
       
-      Nacional<- cbind.data.frame(nacional[,1],round(IC$`2.5 %`,2),round(IC$`97.5 %`,2),nacional[,2:ncol(nacional)])
+      Nacional <- cbind.data.frame(nacional[,1],round(IC$`2.5 %`,2),round(IC$`97.5 %`,2),nacional[,2:ncol(nacional)])
       row.names(Nacional) <- General
-      names(Nacional)<-c("Media","lim. inf.","lim. sup.","Err. Est.","DEFF")
+      names(Nacional) <- c("Media","lim. inf.","lim. sup.","Err. Est.","DEFF")
       Nacional$Varianza <- (Nacional$'Err. Est.'^2)
       Nacional$'Coef. Var.' <- Nacional$'Err. Est.'/Nacional$Media
-      Nacional$Media<- round(Nacional$Media,2)
+      Nacional$Media <- round(Nacional$Media,2)
     } # Tablas de estadísticas Nacionales
     
     for (dom in Dominios) {
@@ -308,7 +314,7 @@ for(p in Lista){
       }
     } # Nacional
     
-    for(dom in Dominios){
+    for (dom in Dominios) {
       
       {
         # estimación de media desagregada por dominio

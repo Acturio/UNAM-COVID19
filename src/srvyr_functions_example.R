@@ -48,7 +48,7 @@ svyquantile(~Votos, elect_boot,
             interval.type = "quantile")
 
 
-#########################
+######################### EJEMPLO ENIGH ######################### 
 
 concentrado_hogar <- read_csv("data/concentradohogar.csv")
 
@@ -114,14 +114,14 @@ enigh_boot <- enigh_boot %>%
 enigh_boot$variables %>% glimpse()
 
 # Estimación de variable numérica
-enigh_boot %>% 
+pct_gasto_estimado <- enigh_boot %>% 
   srvyr::summarise(
     mean_pct_gasto = survey_mean(
       pct_gasto, na.rm = T, 
       vartype = c("se","ci","cv"),
       deff = T)
   )
-
+pct_gasto_estimado
 
 # Estimación agrupada de variable numérica
 pct_gasto_sex <- enigh_boot %>% 
@@ -198,10 +198,34 @@ sexo_categ_x %>%
 
 
 
+ggplot(pct_gasto_x_decil, aes(x = decil, y = mean_pct_gasto)) +
+  geom_hline(yintercept = pct_gasto_estimado$mean_pct_gasto, 
+             col = "blue", linetype = 'dotted') +
+  geom_point(col = "red") + 
+  geom_errorbar(aes(ymin = mean_pct_gasto - qnorm(0.975) * mean_pct_gasto_se,
+                    ymax = mean_pct_gasto + qnorm(0.975) * mean_pct_gasto_se), 
+                width = 0.1) +
+  geom_line() +
+  ggtitle("Intervalos de confianza de gasto (%) por decil de ingreso") +
+  ylab("Gasto (%)") + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 
-
-
+ggplot(pct_gasto_x_decil, aes(x = decil, y = mean_pct_gasto)) +
+  geom_col(fill = "gray") + 
+  geom_errorbar(
+    aes(
+      ymin = mean_pct_gasto - qnorm(0.975) * mean_pct_gasto_se,
+      ymax = mean_pct_gasto + qnorm(0.975) * mean_pct_gasto_se
+        ),
+    width = 0.1
+    ) +
+  geom_line() +
+  geom_hline(yintercept = pct_gasto_estimado$mean_pct_gasto, 
+             col = "blue", linetype = 'dotted') +
+  ggtitle("Intervalos de confianza de gasto (%) por decil de ingreso") +
+  ylab("Gasto (%)") + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 
 

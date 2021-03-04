@@ -14,6 +14,7 @@ library(rgeos)
 library(xlsx)
 library(readr)
 library(readxl)
+library(feather)
 
 datos <- read_csv("conjunto_de_datos_ageb_urbana_09_cpv2020.csv",
                    na = c("*", 'N/D', "N/A"))
@@ -46,38 +47,11 @@ marco <- datos_mza %>%
   
     ESTRATO_ID = str_c(
     MUN, ESTRATO_ID_PEA, 
-    ESTRATO_ID_HACINAMIENTO, sep = "-") ,
-    
-    #ESTRATO_2 = str_c(
-    #  MUN, ESTRATO_ID_PEA, sep = "-") ,
-    
-    #ESTRATO_3 = str_c(
-     # MUN, ESTRATO_ID_GRAD_PROM_ESC, sep = "-") ,
-    
-    #ESTRATO_4 = str_c(
-     # MUN,ESTRATO_ID_HACINAMIENTO, sep = "-") ,
+    ESTRATO_ID_HACINAMIENTO, sep = "-"),
     
     CVE_ESTRATO = as.numeric(as.factor(ESTRATO_ID))
-    
-  #  CVE_ESTRATO_2 = as.numeric(as.factor(ESTRATO_2)),
-    
-  #  CVE_ESTRATO_3 = as.numeric(as.factor(ESTRATO_3)),
-    
-   # CVE_ESTRATO_4 = as.numeric(as.factor(ESTRATO_4))
     )
     
-
-
-marco %>% group_by(CVE_ESTRATO) %>% tally() %>% as.data.frame() %>% 
-  mutate(prop = n/sum(n), 
-         m = prop * 2975/5)
-
-marco %>% group_by(ESTRATO_ID) %>% tally() %>% as.data.frame() %>% 
-  mutate(prop = n/sum(n), 
-         m = round(prop * 2975/5, 0)) %>% 
-  arrange(m)
-
-
 distribucion_estratos <- marco %>%
   group_by(MUN, ESTRATO_ID) %>%
   tally() %>%
@@ -94,45 +68,6 @@ write.xlsx(
 
 distribucion_muestral_ajustada <- read_xlsx("distribucion_muestral.xlsx")
 
-##PONERLO EN MAPA
-
-distribucion_estratos%>% 
-  group_by(MUN) %>% 
-  summarise( muestra = sum(n_muestra))
-
-# 186: Número de manzanas de cada municipio 
-# 2976 
-# Mapa
-
-leaflet() %>% 
-  addTiles() %>% 
-  setView(lng = -99.4, lat = 19.14, zoom = 10)
-
-shp_mzn <- readOGR("manzanas.shp") %>% 
-  spTransform(CRS("+proj=longlat +datum=WGS84"))
-
-shp_mun <- readOGR("municipal.shp") %>% 
-  spTransform(CRS("+proj=longlat +datum=WGS84"))
-
- 
-temp <- shp_mzn@polygons[[1]]@Polygons[[1]]@coords %>% 
-  as.data.frame() %>% 
-  rename(lng = V1, lat = V2)
-
-shp <- shp_mzn[shp_mzn@data$CVEGEO %in% marco$UPM,] 
-
-shp_mzn@data <- shp_mzn@data %>% left_join(marco, by = c('CVEGEO' = 'UPM'))
-
-pal <- colorFactor(palette = rainbow(n = 96), domain = 1:96)
-
-shp %>% 
-  leaflet() %>% 
-  addTiles() %>% 
-  addPolygons(data = shp_mun, fillColor = "transparent", color = "black", 
-              weight = 1) %>% 
-  addPolygons(
-    data = shp_mzn, color = ~pal(CVE_ESTRATO), weight = 0.5, 
-    fillOpacity = 0.7, label = ~CVEGEO)
 
 marco %<>% arrange(CVE_ESTRATO)
 
@@ -146,9 +81,52 @@ method = "systematic", pik = as.integer(marco$VIVPAR_HAB), description = TRUE)
 
 marco_muestral <- getdata(marco, muestra)
 
-marco_muestral %>% group_by(ESTRATO_ID) %>% tally() %>% as.data.frame() %>% 
+# Comprobación n_muestra_ajustada
+
+marco_muestral %>%
+  group_by(ESTRATO_ID) %>% 
+  tally() %>%
+  as.data.frame() %>% 
   left_join(distribucion_muestral_ajustada, by =c('ESTRATO_ID'= 'ESTRATO_1')) %>% 
   mutate(resta = n.x - n_muestra_ajustada)
 
-### Hacer mapa de esta muestra y pasarla en un xlsx y feather 
-## Colorear mapa por estratos y pegarle los municipios 
+# Mapa marco muestral
+
+leaflet() %>% 
+  addTiles() %>% 
+  setView(lng = -99.4, lat = 19.14, zoom = 10)
+
+shp_mzn <- readOGR("manzanas.shp") %>% 
+  spTransform(CRS("+proj=longlat +datum=WGS84"))
+
+shp_mun <- readOGR("municipal.shp") %>% 
+  spTransform(CRS("+proj=longlat +datum=WGS84"))
+
+temp <- shp_mzn@polygons[[1]]@Polygons[[1]]@coords %>% 
+  as.data.frame() %>% 
+  rename(lng = V1, lat = V2)
+
+shp <- shp_mzn[shp_mzn@data$CVEGEO %in% marco_muestral$UPM,] 
+
+shp_mzn@data <- shp_mzn@data %>% left_join(marco_muestral, by = c('CVEGEO' = 'UPM'))
+
+pal <- colorFactor(palette = rainbow(n = 96), domain = 1:96)
+
+shp %>% 
+  leaflet() %>% 
+  addTiles() %>% 
+  addPolygons(data = shp_mun, fillColor = "transparent", color = "black", 
+              weight = 1) %>% 
+  addPolygons(
+    data = shp_mzn, color = ~pal(CVE_ESTRATO), weight = 0.5, 
+    fillOpacity = 0.7, label = ~ESTRATO_ID)
+
+
+marco_muestral %>% 
+  write_feather('sample/MUESTRA-COVID19.feather')
+
+marco_muestral %>% 
+  as.data.frame() %>% 
+  write.xlsx('sample/MUESTRA-COVID19.xlsx',
+             row.names = FALSE
+  )
